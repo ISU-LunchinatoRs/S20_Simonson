@@ -188,48 +188,6 @@ beta5<-qplot(x, y, data = dd.beta5, geom = "line", ylab = "", xlab = "") +
 grid.arrange(beta0, beta1, beta2,
              beta3, beta4, beta5,
              ncol=3)
-###########################################################################
-# plot of distribution of ElogCPUE in boxplots, overlaid with observed CPUE 
-cpue.4 <- coda.samples(cpue.m, 
-                       c('ElogCPUE'), # parameters we want back
-                       5000) # number of samples
-# storing model output as object
-cpue.4.out<-summary(cpue.4)
-buff<-droplevels(subset(std.cpue, Species == "BIB"))
-cpue.plot.data.buff<-cbind(buff,cpue.4.out[[1]][c(1:104),],cpue.4.out[[2]][c(1:104),c(1:5)])
-str(cpue.plot.data.buff)
-
-Buff.EvO.CPUE<-ggplot(cpue.plot.data.buff, 
-                      aes(x = Date, y = log(CPUE), col = Lake, fill = Lake, group = Lake))+
-  geom_boxplot(aes(ymin = cpue.plot.data.buff$`2.5%`, lower = cpue.plot.data.buff$`25%`, 
-                   middle = cpue.plot.data.buff$Mean, 
-                   upper = cpue.plot.data.buff$`75%`, ymax = cpue.plot.data.buff$`97.5%`,
-                   fill=Lake),
-               position=position_dodge(width=0),stat = "identity")+
-  geom_point(size=5)+
-  facet_wrap(~Lake)+
-  theme_classic()+
-  theme(axis.text=element_text(size=8),
-        axis.text.x = element_text(angle=90),
-        axis.title=element_text(size=14,face="bold"))+
-  xlab("Date")+
-  ylab("Expected and observed ln (CPUE)")+
-  ggtitle("Comparison of Expected Ln Buffalo CPUE Distribution vs. Observed Ln Carp CPUE")+
-  ylim(0,5)
-Buff.EvO.CPUE
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -426,30 +384,34 @@ grid.arrange(beta0, beta1, beta2,
 
 
 ###############################################################
-# plot of distribution of ElogCPUE in boxplots, overlaid with observed CPUE 
+###########################################################################
+# plot of distribution of ElogCPUE in boxplots, overlaid with observed CPUE as points
 cpue.4 <- coda.samples(cpue.m, 
                        c('ElogCPUE'), # parameters we want back
                        5000) # number of samples
-summary(cpue.4)
+
 # storing model output as object
 cpue.4.out<-summary(cpue.4)
+carp<-droplevels(subset(std.cpue, Species == "COC"))
 
-cpue.plot.data.carp<-cbind(carp,cpue.4.out[[1]][c(1:15),],cpue.4.out[[2]][c(1:15),c(1:5)])
+cpue.plot.data.carp<-cbind(carp,cpue.4.out[[1]][c(1:128),],cpue.4.out[[2]][c(1:128),c(1:5)])
 str(cpue.plot.data.carp)
+cpue.plot.data.buff$Date<-as.Date(cpue.plot.data.buff$Date, "%m/%d/%Y")
 
-Carp.EvO.CPUE<-ggplot(cpue.plot.data.carp, aes(x = Date, y = log(CPUE)))+
+Buff.EvO.CPUE<-ggplot(cpue.plot.data.carp, 
+                      aes(x = factor(Date), y = log(CPUE)))+
   geom_boxplot(aes(ymin = cpue.plot.data.carp$`2.5%`, lower = cpue.plot.data.carp$`25%`, 
                    middle = cpue.plot.data.carp$Mean, 
                    upper = cpue.plot.data.carp$`75%`, ymax = cpue.plot.data.carp$`97.5%`),
-               stat = "identity", fill = "darkgoldenrod")+
+               stat = "identity")+
   geom_point(size=5)+
+  facet_grid(.~Lake)+
   theme_classic()+
   theme(axis.text=element_text(size=8),
         axis.text.x = element_text(angle=90),
         axis.title=element_text(size=14,face="bold"))+
   xlab("Date")+
   ylab("Expected and observed ln (CPUE)")+
-  ggtitle("Comparison of Expected Ln Carp CPUE Distribution vs. Observed Ln Carp CPUE")+
-  ylim(0,5)
-Carp.EvO.CPUE
+  ggtitle("Comparison of Expected Ln Buffalo CPUE Distribution vs. Observed Ln Carp CPUE")
+Buff.EvO.CPUE
 ########################################################################################
