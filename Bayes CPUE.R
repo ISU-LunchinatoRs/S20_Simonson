@@ -20,11 +20,9 @@ packages(tidyr)
 packages(rcompanion)
 packages(lubridate)
 
-# trying to get a single CPUE frame from all data:
+# load data
 std.cpue<-read.csv("CPUE Bayes Data.csv",header=T)
-
 summary(std.cpue)
-
 hist(std.cpue$CPUE)
 
 ########################################################################
@@ -35,9 +33,10 @@ hist(std.cpue$CPUE)
 #             
 #
 ########################################################################
-# define model
-std.cpue2<-droplevels(subset(std.cpue, Species == "BIB"))
 
+# subset species
+std.cpue2<-droplevels(subset(std.cpue, Species == "BIB"))
+# define model
 cpue.m <- jags.model(
   'FirstAttempt.bug',
   data=list(logPop=std.cpue2$logPop, # log population size and 
@@ -57,15 +56,10 @@ coef(cpue.m)
 # sample the MCMC chains 1000 times as burn-in, ignore the samples. this gets thrown away
 update(cpue.m, 1000)
 
-# we want to plot:
-## curve of estimated catchabaility 
-## uncertainty 
+# we want 1000 draws after burn-in
 cpue.i <- coda.samples(cpue.m, # model
                        c('logcatch','b0','b1','b2','b3','b4','b5','sd'), # parameters we want back
                        1000) # number of samples
-
-par(mar=c(3,3,3,3)+0.2, mgp=c(2,0.8,0))
-plot(cpue.i)
 
 summary(cpue.i)
 
@@ -78,7 +72,7 @@ summary(cpue.i)
 # beta 0: intercept
 varnames(cpue.i) # reference variables in model
 str(cpue.i) # structure of lists
-beta0.out <- cbind(cpue.i[[1]][,1], cpue.i[[2]][,1], cpue.i[[3]][,1]) # subsetting for beta1 mcmc output
+beta0.out <- cbind(cpue.i[[1]][,1], cpue.i[[2]][,1], cpue.i[[3]][,1]) # subsetting for beta mcmc output
 attributes(beta0.out) <- NULL # dropping attributes
 dens.beta0 <- density(beta0.out) # density
 q25.beta0 <- quantile(beta0.out, .025) # lower quantile
@@ -94,7 +88,7 @@ beta0<-qplot(x, y, data = dd.beta0, geom = "line", ylab = "", xlab = "") +
   xlab("Beta 0 - Intercept")+
   ylab("Density of Beta 0")+
   ggtitle("Buffalo Lakes: Intercept")
-beta0
+#beta0
 
 beta1.out <- cbind(cpue.i[[1]][,2], cpue.i[[2]][,2], cpue.i[[3]][,2]) # subsetting for beta1 mcmc output
 attributes(beta1.out) <- NULL # dropping attributes
@@ -112,7 +106,7 @@ beta1<-qplot(x, y, data = dd.beta1, geom = "line", ylab = "", xlab = "") +
   xlab("Beta 1 - Lake Size")+
   ylab("Density of Beta 1")+
   ggtitle("Buffalo Lakes: Lake Size")
-beta1
+#beta1
 
 
 beta2.out <- cbind(cpue.i[[1]][,3], cpue.i[[2]][,3], cpue.i[[3]][,3]) # subsetting for beta2 mcmc output
@@ -131,7 +125,7 @@ beta2<-qplot(x, y, data = dd.beta2, geom = "line", ylab = "", xlab = "") +
   xlab("Beta 2 - Maximum Depth (meters)")+
   ylab("Density of Beta 2")+
   ggtitle("Buffalo Lakes: Maximum Depth")
-beta2
+#beta2
 
 
 beta3.out <- cbind(cpue.i[[1]][,4], cpue.i[[2]][,4], cpue.i[[3]][,4]) # subsetting for beta3 mcmc output
@@ -150,7 +144,7 @@ beta3<-qplot(x, y, data = dd.beta3, geom = "line", ylab = "", xlab = "") +
   xlab("Beta 3 - Mean Depth")+
   ylab("Density of Beta 3")+
   ggtitle("Buffalo Lakes: Mean Depth")
-beta3
+#beta3
 
 
 beta4.out <- cbind(cpue.i[[1]][,5], cpue.i[[2]][,5], cpue.i[[3]][,5]) # subsetting for beta4 mcmc output
@@ -169,7 +163,7 @@ beta4<-qplot(x, y, data = dd.beta4, geom = "line", ylab = "", xlab = "") +
   xlab("Beta 4 - Shoreline Development Index")+
   ylab("Density of Beta 4")+
   ggtitle("Buffalo Lakes: SDI")
-beta4
+#beta4
 
 
 beta5.out <- cbind(cpue.i[[1]][,6], cpue.i[[2]][,6], cpue.i[[3]][,6]) # subsetting for beta5 mcmc output
@@ -188,7 +182,51 @@ beta5<-qplot(x, y, data = dd.beta5, geom = "line", ylab = "", xlab = "") +
   xlab("Beta 5 - Water Temp")+
   ylab("Density of Beta 5")+
   ggtitle("Buffalo Lakes: Water Temp")
-beta5
+#beta5
+
+# arrange the six plots:
+grid.arrange(beta0, beta1, beta2,
+             beta3, beta4, beta5,
+             ncol=3)
+###########################################################################
+# plot of distribution of ElogCPUE in boxplots, overlaid with observed CPUE 
+cpue.4 <- coda.samples(cpue.m, 
+                       c('ElogCPUE'), # parameters we want back
+                       5000) # number of samples
+# storing model output as object
+cpue.4.out<-summary(cpue.4)
+buff<-droplevels(subset(std.cpue, Species == "BIB"))
+cpue.plot.data.buff<-cbind(buff,cpue.4.out[[1]][c(1:104),],cpue.4.out[[2]][c(1:104),c(1:5)])
+str(cpue.plot.data.buff)
+
+Buff.EvO.CPUE<-ggplot(cpue.plot.data.buff, 
+                      aes(x = Date, y = log(CPUE), col = Lake, fill = Lake, group = Lake))+
+  geom_boxplot(aes(ymin = cpue.plot.data.buff$`2.5%`, lower = cpue.plot.data.buff$`25%`, 
+                   middle = cpue.plot.data.buff$Mean, 
+                   upper = cpue.plot.data.buff$`75%`, ymax = cpue.plot.data.buff$`97.5%`,
+                   fill=Lake),
+               position=position_dodge(width=0),stat = "identity")+
+  geom_point(size=5)+
+  facet_wrap(~Lake)+
+  theme_classic()+
+  theme(axis.text=element_text(size=8),
+        axis.text.x = element_text(angle=90),
+        axis.title=element_text(size=14,face="bold"))+
+  xlab("Date")+
+  ylab("Expected and observed ln (CPUE)")+
+  ggtitle("Comparison of Expected Ln Buffalo CPUE Distribution vs. Observed Ln Carp CPUE")+
+  ylim(0,5)
+Buff.EvO.CPUE
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -232,10 +270,6 @@ update(cpue.m, 1000)
 cpue.i <- coda.samples(cpue.m, # model
                        c('logcatch','b0','b1','b2','b3','b4','b5','sd'), # parameters we want back
                        1000) # number of samples
-
-par(mar=c(3,3,3,3)+0.2, mgp=c(2,0.8,0))
-plot(cpue.i)
-
 summary(cpue.i)
 
 
@@ -263,7 +297,7 @@ beta0<-qplot(x, y, data = dd.beta0, geom = "line", ylab = "", xlab = "") +
   xlab("Beta 0 - Intercept")+
   ylab("Density of Beta 0")+
   ggtitle("Carp Lakes: Intercept")
-beta0
+#beta0
 
 beta1.out <- cbind(cpue.i[[1]][,2], cpue.i[[2]][,2], cpue.i[[3]][,2]) # subsetting for beta1 mcmc output
 attributes(beta1.out) <- NULL # dropping attributes
@@ -281,7 +315,7 @@ beta1<-qplot(x, y, data = dd.beta1, geom = "line", ylab = "", xlab = "") +
   xlab("Beta 1 - Lake Size")+
   ylab("Density of Beta 1")+
   ggtitle("Carp Lakes: Lake Size")
-beta1
+#beta1
 
 
 beta2.out <- cbind(cpue.i[[1]][,3], cpue.i[[2]][,3], cpue.i[[3]][,3]) # subsetting for beta2 mcmc output
@@ -300,7 +334,7 @@ beta2<-qplot(x, y, data = dd.beta2, geom = "line", ylab = "", xlab = "") +
   xlab("Beta 2 - Maximum Depth (meters)")+
   ylab("Density of Beta 2")+
   ggtitle("Carp Lakes: Maximum Depth")
-beta2
+#beta2
 
 
 beta3.out <- cbind(cpue.i[[1]][,4], cpue.i[[2]][,4], cpue.i[[3]][,4]) # subsetting for beta3 mcmc output
@@ -319,7 +353,7 @@ beta3<-qplot(x, y, data = dd.beta3, geom = "line", ylab = "", xlab = "") +
   xlab("Beta 3 - Mean Depth")+
   ylab("Density of Beta 3")+
   ggtitle("Carp Lakes: Mean Depth")
-beta3
+#beta3
 
 
 beta4.out <- cbind(cpue.i[[1]][,5], cpue.i[[2]][,5], cpue.i[[3]][,5]) # subsetting for beta4 mcmc output
@@ -338,7 +372,7 @@ beta4<-qplot(x, y, data = dd.beta4, geom = "line", ylab = "", xlab = "") +
   xlab("Beta 4 - Shoreline Development Index")+
   ylab("Density of Beta 4")+
   ggtitle("Carp Lakes: SDI")
-beta4
+#beta4
 
 
 beta5.out <- cbind(cpue.i[[1]][,6], cpue.i[[2]][,6], cpue.i[[3]][,6]) # subsetting for beta5 mcmc output
@@ -357,10 +391,11 @@ beta5<-qplot(x, y, data = dd.beta5, geom = "line", ylab = "", xlab = "") +
   xlab("Beta 5 - Water Temp")+
   ylab("Density of Beta 5")+
   ggtitle("Carp Lakes: Water Temp")
-beta5
+#beta5
 
-
-
+grid.arrange(beta0, beta1, beta2,
+             beta3, beta4, beta5,
+             ncol=3)
 
 
 
